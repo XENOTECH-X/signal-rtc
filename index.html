@@ -456,6 +456,10 @@
     pointer-events: none;
     user-select: none;
   }
+
+  #nameModal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; }
+  #nameModal .box { background: var(--panel); border: 1px solid var(--border-bright); padding: 22px; width: min(340px, 90vw); display: flex; flex-direction: column; gap: 14px; }
+  #nameModal .title { letter-spacing: 2px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -529,6 +533,16 @@
     </div>
   </main>
 </div>
+<div id="nameModal">
+  <div class="box">
+    <div class="title">ENTER YOUR NAME</div>
+    <div class="field">
+      <label>NAME</label>
+      <input type="text" id="nameInput" placeholder="E.G. JON" maxlength="16" autocomplete="off" spellcheck="false" />
+    </div>
+    <button class="btn btn-primary btn-full" id="nameBtn">[ START ]</button>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -542,7 +556,7 @@ const $ = id => document.getElementById(id);
 window.onload = () => {
   setStatus('offline');
   setSigStatus('connecting');
-  initPeer();
+  askName();
   $('remoteIdInput').addEventListener('input', refreshButtons);
   $('remoteIdInput').addEventListener('keydown', e => { if (e.key === 'Enter') connectChat(); });
   $('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
@@ -557,8 +571,31 @@ window.addEventListener('message', e => {
   else pendingConnect = d.id;
 });
 
-function initPeer() {
-  peer = new Peer(undefined, { debug: 0 });
+function askName() {
+  let saved = '';
+  try { saved = localStorage.getItem('signalName') || ''; } catch {}
+  const input = $('nameInput');
+  input.value = saved;
+  input.focus();
+  const go = () => {
+    const name = input.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+    if (!name) { toast('ENTER A NAME'); return; }
+    try { localStorage.setItem('signalName', name); } catch {}
+    $('nameModal').style.display = 'none';
+    initPeer(name);
+  };
+  $('nameBtn').onclick = go;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+
+function makeId(name) {
+  return name + '-' + crypto.randomUUID().split('-').slice(1).join('-');
+}
+
+let myName = '';
+function initPeer(name) {
+  if (name) myName = name;
+  peer = new Peer(makeId(myName), { debug: 0 });
 
   peer.on('open', id => {
     $('myId').textContent = id;
@@ -575,6 +612,7 @@ function initPeer() {
 
   peer.on('error', err => {
     log('PEER ERROR: ' + err.type, 'err');
+    if (err.type === 'unavailable-id') { setTimeout(initPeer, 500); return; }
     setSigStatus('err');
     if (['server-error','socket-error','socket-closed','network'].includes(err.type)) {
       setSigStatus('connecting');
