@@ -457,12 +457,24 @@
     user-select: none;
   }
 
-  #nameModal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; }
+  /* ── START MENU (matches Data OS) ── */
+  #startup{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#000;z-index:9000;gap:40px;}
+  #startup .startup-title{color:#0f0;font-family:monospace;font-size:48px;letter-spacing:8px;}
+  #startup .startup-subtitle{color:#0a0;font-family:monospace;font-size:13px;letter-spacing:4px;}
+  #startup .startup-buttons{display:flex;gap:20px;}
+  #startup .startup-btn{background:#000;color:#0f0;border:2px solid #0f0;padding:16px 48px;font-family:monospace;font-size:18px;cursor:pointer;letter-spacing:3px;}
+  #startup .startup-btn:hover{background:#0f0;color:#000;}
+  #nameModal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.92); display: none; align-items: center; justify-content: center; }
   #nameModal .box { background: var(--panel); border: 1px solid var(--border-bright); padding: 22px; width: min(340px, 90vw); display: flex; flex-direction: column; gap: 14px; }
   #nameModal .title { letter-spacing: 2px; font-size: 13px; }
 </style>
 </head>
 <body>
+<div id="startup">
+  <div class="startup-title">SIGNAL-RTC</div>
+  <div class="startup-subtitle">WEBRTC // TEXT MODE</div>
+  <div class="startup-buttons"><button class="startup-btn" id="startBtn">START</button></div>
+</div>
 <div class="app">
   <header>
     <div class="logo">SIGNAL<span>WEBRTC // TEXT MODE</span></div>
@@ -540,7 +552,7 @@
       <label>NAME</label>
       <input type="text" id="nameInput" placeholder="E.G. JON" maxlength="16" autocomplete="off" spellcheck="false" />
     </div>
-    <button class="btn btn-primary btn-full" id="nameBtn">[ START ]</button>
+    <button class="btn btn-primary btn-full" id="nameBtn">[ ENTER ]</button>
   </div>
 </div>
 <div id="toast"></div>
@@ -556,7 +568,6 @@ const $ = id => document.getElementById(id);
 window.onload = () => {
   setStatus('offline');
   setSigStatus('connecting');
-  askName();
   $('remoteIdInput').addEventListener('input', refreshButtons);
   $('remoteIdInput').addEventListener('keydown', e => { if (e.key === 'Enter') connectChat(); });
   $('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
@@ -570,23 +581,6 @@ window.addEventListener('message', e => {
   if (peer && peer.open) { $('remoteIdInput').value = d.id; connectChat(); }
   else pendingConnect = d.id;
 });
-
-function askName() {
-  let saved = '';
-  try { saved = localStorage.getItem('signalName') || ''; } catch {}
-  const input = $('nameInput');
-  input.value = saved;
-  input.focus();
-  const go = () => {
-    const name = input.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
-    if (!name) { toast('ENTER A NAME'); return; }
-    try { localStorage.setItem('signalName', name); } catch {}
-    $('nameModal').style.display = 'none';
-    initPeer(name);
-  };
-  $('nameBtn').onclick = go;
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
-}
 
 function makeId(name) {
   return name + '-' + crypto.randomUUID().split('-').slice(1).join('-');
@@ -747,5 +741,31 @@ function log(msg, type = '') {
 </script>
 
 <div class="copyright">&#169; Jon Stearns 2026</div>
+<script>
+(function(){
+  const m=document.getElementById('startup');
+  const modal=document.getElementById('nameModal'), input=document.getElementById('nameInput');
+  function askName(){
+    let saved='';
+    try{saved=localStorage.getItem('signalName')||'';}catch(e){}
+    input.value=saved;
+    modal.style.display='flex';
+    input.focus();
+    const done=()=>{
+      const name=input.value.replace(/[^a-zA-Z0-9]/g,'').slice(0,16);
+      if(!name){toast('ENTER A NAME');return;}
+      try{localStorage.setItem('signalName',name);}catch(e){}
+      modal.style.display='none';
+      initPeer(name);
+    };
+    document.getElementById('nameBtn').onclick=done;
+    input.addEventListener('keydown',e=>{if(e.key==='Enter')done();});
+  }
+  function go(){m.remove();document.removeEventListener('keydown',k);askName();}
+  function k(e){if(e.key==='Enter')go();}
+  document.getElementById('startBtn').onclick=go;
+  document.addEventListener('keydown',k);
+})();
+</script>
 </body>
 </html>
