@@ -587,6 +587,12 @@ function makeId(name) {
 }
 
 let myName = '';
+
+// tell the list we left so we vanish right away
+addEventListener('pagehide', () => {
+  clearInterval(announceTimer);
+  if (peer && peer.id) navigator.sendBeacon('https://ntfy.sh/' + TOPIC, 'leave:' + peer.id);
+});
 function initPeer(name) {
   if (name) myName = name;
   peer = new Peer(makeId(myName), { debug: 0 });
@@ -600,7 +606,7 @@ function initPeer(name) {
     announce();
     if (pendingConnect) { $('remoteIdInput').value = pendingConnect; connectChat(); pendingConnect = null; }
     clearInterval(announceTimer);
-    announceTimer = setInterval(announce, 30000);
+    announceTimer = setInterval(announce, 15000);
     refreshButtons();
   });
 
