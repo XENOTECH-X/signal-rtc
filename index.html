@@ -51,7 +51,7 @@
     display: grid;
     grid-template-columns: 280px 1fr;
     grid-template-rows: 48px 1fr;
-    height: 100vh;
+    height: calc(100vh - var(--dbg-h, 0px));
   }
 
   /* ── HEADER ── */
@@ -423,7 +423,7 @@
 
   #toast {
     position: fixed;
-    bottom: 20px;
+    bottom: calc(20px + var(--dbg-h, 0px));
     left: 50%;
     transform: translateX(-50%) translateY(60px);
     background: #111;
@@ -444,7 +444,7 @@
   /* ── COPYRIGHT ── */
   .copyright {
     position: fixed;
-    bottom: 10px;
+    bottom: calc(10px + var(--dbg-h, 0px));
     left: 0;
     width: 280px;
     text-align: center;
@@ -582,8 +582,18 @@ window.addEventListener('message', e => {
   else pendingConnect = d.id;
 });
 
+// crypto.randomUUID only exists on secure (https) pages; data: URIs aren't, so fall back
+function uuid() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+
 function makeId(name) {
-  return name + '-' + crypto.randomUUID().split('-').slice(1).join('-');
+  return name + '-' + uuid().split('-').slice(1).join('-');
 }
 
 let myName = '';
@@ -611,7 +621,7 @@ function initPeer(name) {
   });
 
   peer.on('error', err => {
-    log('PEER ERROR: ' + err.type, 'err');
+    log('PEER ERROR: ' + err.type + ' ' + (err.message || ''), 'err');
     if (err.type === 'unavailable-id') { setTimeout(initPeer, 500); return; }
     setSigStatus('err');
     if (['server-error','socket-error','socket-closed','network'].includes(err.type)) {
