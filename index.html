@@ -457,6 +457,8 @@
     user-select: none;
   }
 
+  .copyright.center { width: 100%; }
+
   /* ── START MENU (matches Data OS) ── */
   #startup{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#000;z-index:9000;gap:40px;}
   #startup .startup-title{color:#0f0;font-family:monospace;font-size:48px;letter-spacing:8px;}
@@ -472,12 +474,12 @@
 <body>
 <div id="startup">
   <div class="startup-title">SIGNAL-RTC</div>
-  <div class="startup-subtitle">WEBRTC // TEXT MODE</div>
-  <div class="startup-buttons"><button class="startup-btn" id="startBtn">START</button></div>
+  <div class="startup-subtitle">WEBRTC // TEXT CHANNEL</div>
+  <div class="startup-buttons"><button class="startup-btn" id="startBtn">CHAT</button></div>
 </div>
 <div class="app">
   <header>
-    <div class="logo">SIGNAL<span>WEBRTC // TEXT MODE</span></div>
+    <div class="logo">SIGNAL<span>WEBRTC // TEXT CHANNEL</span></div>
     <div class="header-right">
       <div class="sig-pill">
         <div class="status-dot sig-connecting" id="sigDot"></div>
@@ -556,6 +558,7 @@
   </div>
 </div>
 <div id="toast"></div>
+<div class="copyright center" id="copyright">&#169; Jon Stearns 2026</div>
 
 <script>
 let peer = null;
@@ -598,6 +601,20 @@ function makeId(name) {
 
 let myName = '';
 
+// list presence: announce while free, vanish while in a chat, reappear on hangup
+const post = body => fetch('https://ntfy.sh/' + TOPIC, { method: 'POST', body }).catch(() => {});
+function startAnnouncing() {
+  clearInterval(announceTimer);
+  if (!peer || !peer.id) return;
+  post(peer.id);
+  announceTimer = setInterval(() => post(peer.id), 15000);
+}
+function stopAnnouncing() {
+  clearInterval(announceTimer);
+  announceTimer = null;
+  if (peer && peer.id) post('leave:' + peer.id);
+}
+
 // tell the list we left so we vanish right away
 addEventListener('pagehide', () => {
   clearInterval(announceTimer);
@@ -612,11 +629,8 @@ function initPeer(name) {
     setSigStatus('ok');
     setStatus('online');
     log('NODE INITIALIZED · ID: ' + id, 'ok');
-    const announce = () => fetch('https://ntfy.sh/' + TOPIC, { method: 'POST', body: id }).catch(() => {});
-    announce();
     if (pendingConnect) { $('remoteIdInput').value = pendingConnect; connectChat(); pendingConnect = null; }
-    clearInterval(announceTimer);
-    announceTimer = setInterval(announce, 15000);
+    if (conn && conn.open) stopAnnouncing(); else startAnnouncing();
     refreshButtons();
   });
 
@@ -650,6 +664,7 @@ function setupConn(c) {
     log('DATA CHANNEL OPEN', 'ok');
     toast('CHAT CONNECTED');
     setStatus('in-call');
+    stopAnnouncing();
     $('idleState').style.display = 'none';
     $('chatInput').disabled = false;
     $('sendBtn').disabled = false;
@@ -668,6 +683,7 @@ function setupConn(c) {
     toast('PEER DISCONNECTED');
     conn = null;
     setStatus('online');
+    startAnnouncing();
     $('chatInput').disabled = true;
     $('sendBtn').disabled = true;
     if (!$('messages').children.length) $('idleState').style.display = 'flex';
@@ -756,7 +772,6 @@ function log(msg, type = '') {
 }
 </script>
 
-<div class="copyright">&#169; Jon Stearns 2026</div>
 <script>
 (function(){
   const m=document.getElementById('startup');
@@ -777,7 +792,7 @@ function log(msg, type = '') {
     document.getElementById('nameBtn').onclick=done;
     input.addEventListener('keydown',e=>{if(e.key==='Enter')done();});
   }
-  function go(){m.remove();document.removeEventListener('keydown',k);askName();}
+  function go(){m.remove();document.getElementById('copyright').classList.remove('center');document.removeEventListener('keydown',k);askName();}
   function k(e){if(e.key==='Enter')go();}
   document.getElementById('startBtn').onclick=go;
   document.addEventListener('keydown',k);
